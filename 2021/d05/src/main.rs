@@ -6,7 +6,11 @@ use std::cmp;
 enum LineDirection {
   Horizontal,
   Vertical,
-  Diagonal
+  ForwardDiagonal,
+  ForwardDiagonalReverse,
+  BackwardDiagonal,
+  BackwardDiagonalReverse,
+  Unknown
 }
 
 struct Line {
@@ -22,11 +26,14 @@ impl Line {
     let dx = x.1 as i32 - x.0 as i32;
     let dy = y.1 as i32 - y.0 as i32;
 
-    // TODO alternate matching & param for diagonal
     let direction = match (dx, dy) {
       (_, 0) => LineDirection::Horizontal,
       (0, _) => LineDirection::Vertical,
-      (_,_) => LineDirection::Diagonal
+      (_, _) if dx > 0 && dy < 0 => LineDirection::ForwardDiagonal,
+      (_, _) if dx < 0 && dy > 0 => LineDirection::ForwardDiagonalReverse,
+      (_, _) if dx > 0 && dy > 0 => LineDirection::BackwardDiagonal,
+      (_, _) if dx < 0 && dy < 0 => LineDirection::BackwardDiagonalReverse,
+      (_, _) => LineDirection::Unknown
     };
 
     Self {
@@ -38,48 +45,59 @@ impl Line {
     }
   }
 
-  fn path(&self) -> Vec<(usize, usize)> {
+  fn path(&self, allow_diag: bool) -> Vec<(usize, usize)> {
     match self.direction {
       LineDirection::Horizontal => {
-        let (start, end) = if self.dx > 0 {self.x} else {(self.x.1, self.x.0)};
-        (start..=end).map(|x| (x, self.y.0)).collect::<Vec<(usize, usize)>>()
+        let x_path = if self.dx > 0 {self.x} else {(self.x.1, self.x.0)};
+        (x_path.0..=x_path.1).map(|x| (x, self.y.0)).collect::<Vec<(usize, usize)>>()
       },
       LineDirection::Vertical => {
-        let (start, end) = if self.dy > 0 {self.y} else {(self.y.1, self.y.0)};
-        (start..=end).map(|y| (self.x.0, y)).collect::<Vec<(usize, usize)>>()
+        let y_path = if self.dy > 0 {self.y} else {(self.y.1, self.y.0)};
+        (y_path.0..=y_path.1).map(|y| (self.x.0, y)).collect::<Vec<(usize, usize)>>()
       },
-      LineDirection::Diagonal => {
-        // TODO
-        vec![]
+      LineDirection::ForwardDiagonal if allow_diag => {
+        (self.x.0..=self.x.1).zip((self.y.1..=self.y.0).rev()).map(|(x,y)| (x, y)).collect::<Vec<(usize, usize)>>()
       }
+      LineDirection::ForwardDiagonalReverse if allow_diag => {
+        ((self.x.1..=self.x.0).rev()).zip(self.y.0..=self.y.1).map(|(x,y)| (x, y)).collect::<Vec<(usize, usize)>>()
+      },
+      LineDirection::BackwardDiagonal if allow_diag => {
+        (self.x.0..=self.x.1).zip(self.y.0..=self.y.1).map(|(x,y)| (x, y)).collect::<Vec<(usize, usize)>>()
+      }
+      LineDirection::BackwardDiagonalReverse if allow_diag => {
+        (self.x.1..=self.x.0).zip(self.y.1..=self.y.0).map(|(x,y)| (x, y)).collect::<Vec<(usize, usize)>>()
+      },
+      _ => vec![]
     }
   }
 }
 
 impl fmt::Display for Line {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-      write!(f, "({}, {}) -> ({}, {})", self.x.0, self.y.0, self.x.1, self.y.1).unwrap();
+      write!(f, "{},{} -> {},{}", self.x.0, self.y.0, self.x.1, self.y.1).unwrap();
       Ok(())
   }
 }
 
 struct Vents {
-  grid: Vec<Vec<u8>>
+  grid: Vec<Vec<u8>>,
+  allow_diag: bool
 }
 
 impl Vents {
-  fn new(width: usize, height: usize) -> Self {
+  fn new(width: usize, height: usize, allow_diag: bool) -> Self {
     Self {
       grid: vec![vec![0u8; width]; height],
+      allow_diag: allow_diag,
     }
   }
 
   fn draw(&mut self, line: &mut Line) {
-    let path = &line.path();
-    path.iter().for_each(|(x,y)| self.grid[*y][*x] = self.grid[*y][*x] + 1)
+    let path = &line.path(self.allow_diag);
+    path.iter().for_each(|(x,y)| self.grid[*y][*x] += 1)
   }
 
-  fn overlap(&mut self, num: u8) -> usize {
+  fn num_overlap(&mut self, num: u8) -> usize {
     self.grid.iter().flatten().filter(|&&v| v >= num).cloned().collect::<Vec<u8>>().len()
   }
 }
@@ -117,10 +135,15 @@ fn parse(text: String) -> (Vec<Line>, (usize, usize)) {
 }
 
 fn pt1(lines: &mut Vec<Line>, maxes: (usize, usize)) -> usize {
-  let mut vents = Vents::new(maxes.0+1, maxes.1+1);
+  let mut vents = Vents::new(maxes.0+1, maxes.1+1, false);
   lines.iter_mut().for_each(|line| vents.draw(line));
+  vents.num_overlap(2)
+}
 
-  vents.overlap(2)
+fn pt2(lines: &mut Vec<Line>, maxes: (usize, usize)) -> usize {
+  let mut vents = Vents::new(maxes.0+1, maxes.1+1, true);
+  lines.iter_mut().for_each(|line| vents.draw(line));
+  vents.num_overlap(2)
 }
 
 fn main() {
@@ -129,6 +152,6 @@ fn main() {
 
   let (mut lines, maxes) = parse(text);
 
-  let pt1_sol = pt1(&mut lines, maxes);
-  println!("pt1: {}", pt1_sol);
+  println!("pt1: {}", pt1(&mut lines, maxes));
+  println!("pt2: {}", pt2(&mut lines, maxes));
 }
