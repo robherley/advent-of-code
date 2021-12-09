@@ -1,7 +1,7 @@
 use std::fs;
 use std::collections::HashSet;
 
-fn pt1(positions: &Vec<usize>) -> usize {
+fn solve(positions: &Vec<usize>, is_pt2: bool) -> usize {
   let mut min_fuel = usize::MAX;
   let mut seen_pos: HashSet<usize> = HashSet::new();
 
@@ -14,7 +14,14 @@ fn pt1(positions: &Vec<usize>) -> usize {
 
     let mut fuel = 0;
     for pos2 in positions.iter() {
-      fuel += (*pos as i32 - *pos2 as i32).abs() as usize;
+      let mut curr_fuel = (*pos as isize - *pos2 as isize).abs() as usize;
+      if is_pt2 {
+        // cheated a little bit :) had to google to find the right equation
+        // https://en.wikipedia.org/wiki/Triangular_number aka n * (n+1) / 2
+        curr_fuel = curr_fuel * (curr_fuel + 1) / 2;
+      }
+
+      fuel += curr_fuel;
       if fuel > min_fuel {
         break;
       }
@@ -33,5 +40,6 @@ fn main() {
     .expect("Unable to read input file");
 
   let positions: Vec<usize> = text.split(",").map(|s| s.parse::<usize>().unwrap()).collect();
-  println!("pt1: {:?}", pt1(&positions));
+  println!("pt1: {:?}", solve(&positions, false));
+  println!("pt2: {:?}", solve(&positions, true));
 }
