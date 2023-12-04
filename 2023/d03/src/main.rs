@@ -96,32 +96,17 @@ fn find_whole_number(input: &Vec<Vec<Kind>>, x: usize, y: usize) -> i32 {
     result.iter().collect::<String>().parse::<i32>().unwrap()
 }
 
-fn pt1(parsed: &Vec<Vec<Kind>>) -> i32 {
+fn solve(parsed: &Vec<Vec<Kind>>) -> (i32, i32) {
     let mut part_numbers = vec![];
-
-    for (y, line) in parsed.iter().enumerate() {
-        for (x, kind) in line.iter().enumerate() {
-            match kind {
-                Kind::Symbol(_) => {
-                    part_numbers.extend(find_surrounding(&parsed, x as i32, y as i32))
-                }
-                _ => (),
-            }
-        }
-    }
-
-    part_numbers.iter().sum::<i32>()
-}
-
-fn pt2(parsed: &Vec<Vec<Kind>>) -> i32 {
     let mut ratios = vec![];
 
     for (y, line) in parsed.iter().enumerate() {
         for (x, kind) in line.iter().enumerate() {
             match kind {
-                Kind::Symbol('*') => {
+                Kind::Symbol(c) => {
                     let surrounding = find_surrounding(&parsed, x as i32, y as i32);
-                    if surrounding.len() == 2 {
+                    part_numbers.extend(&surrounding);
+                    if *c == '*' && surrounding.len() == 2 {
                         ratios.push(surrounding.iter().product::<i32>());
                     }
                 }
@@ -130,12 +115,13 @@ fn pt2(parsed: &Vec<Vec<Kind>>) -> i32 {
         }
     }
 
-    ratios.iter().sum::<i32>()
+    (part_numbers.iter().sum::<i32>(), ratios.iter().sum::<i32>())
 }
 
 fn main() {
     let input = include_str!("../assets/input.txt");
     let parsed = parse(input);
-    println!("pt1: {:?}", pt1(&parsed));
-    println!("pt2: {:?}", pt2(&parsed));
+    let (pt1, pt2) = solve(&parsed);
+    println!("pt1: {:?}", pt1);
+    println!("pt2: {:?}", pt2);
 }
