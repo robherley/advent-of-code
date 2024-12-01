@@ -4,19 +4,13 @@ fn pt1(left: &Vec<i64>, right: &Vec<i64>) -> i64 {
     left.into_iter()
         .zip(right.into_iter())
         .map(|(l, r)| (l - r).abs())
-        .sum::<i64>()
+        .sum()
 }
 
 fn pt2(left: &Vec<i64>, rightset: &HashMap<i64, i64>) -> i64 {
     left.into_iter()
-        .map(|l| {
-            if let Some(count) = rightset.get(&l) {
-                l * count
-            } else {
-                0
-            }
-        })
-        .sum::<i64>()
+        .map(|l| rightset.get(l).map_or(0, |count| *count * l))
+        .sum()
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,10 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut rightset = HashMap::new();
 
     for line in input.lines() {
-        let parts: Vec<Option<i64>> = line
-            .split_whitespace()
-            .map(|n| n.parse::<i64>().ok())
-            .collect();
+        let parts: Vec<Option<i64>> = line.split_whitespace().map(|n| n.parse().ok()).collect();
         if parts.len() != 2 {
             return Err("bad input".into());
         }
@@ -39,12 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             (Some(l), Some(r)) => {
                 left.push(l);
                 right.push(r);
-                if rightset.contains_key(&r) {
-                    let count = rightset.get_mut(&r).unwrap();
-                    *count += 1;
-                } else {
-                    rightset.insert(r, 1);
-                }
+                *rightset.entry(r).or_insert(0) += 1;
             }
             _ => {
                 return Err("bad input".into());
