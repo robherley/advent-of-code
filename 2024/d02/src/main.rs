@@ -116,7 +116,7 @@ mod tests {
             .clone()
             .into_iter()
             .enumerate()
-            .filter(|(_ row)| is_safe_levels(row, true))
+            .filter(|(_, row)| is_safe_levels(row, true))
             .map(|(i, _)| i)
             .collect();
         let alt: HashSet<usize> = input
