@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+#/ usage: script/init [day] [year]
+
+set -eo pipefail
+
+day=$1
+year=$2
+
+if [ -z "$day" ]; then
+  day=$(date +%-d)
+fi
+
+if [ -z "$year" ]; then
+  year=$(date +%Y)
+fi
+
+dir="$year/d$(printf "%02d" "$day")"
+mkdir -p "$dir"
+cargo init -q "$dir" || true
+mkdir -p "$dir/assets"
+
+cat > "$dir/src/main.rs" <<EOF
+fn main() {
+    let input = include_str!("../assets/input.txt");
+    println!("{}", input);
+}
+EOF
+
+if [ -z "$AOC_SESSION" ]; then
+  echo "AOC_SESSION is not set. Please set it to your session cookie to download input."
+  exit 1
+fi
+
+curl -s "https://adventofcode.com/$year/day/$day/input" -H "cookie: session=$AOC_SESSION" > "$dir/assets/input.txt"

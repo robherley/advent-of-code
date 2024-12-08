@@ -1,4 +1,4 @@
-assets/*
+**/assets/*
 
 # Created by https://www.toptal.com/developers/gitignore/api/vim,macos,rust,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=vim,macos,rust,visualstudiocode
