@@ -1,124 +1,137 @@
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug)]
-enum Node {
-    Antenna(char),
-    AntiNode,
-    Empty,
+struct Scanner {
+    nodes: Vec<Vec<Option<char>>>,
+    antennas: HashMap<char, Vec<(usize, usize)>>,
 }
 
-fn distance(a: (usize, usize), b: (usize, usize)) -> (isize, isize) {
-    (
-        (a.0 as isize - b.0 as isize) as isize,
-        (a.1 as isize - b.1 as isize) as isize,
-    )
-}
-
-fn delta(point: (usize, usize), d: (isize, isize)) -> (isize, isize) {
-    let point = (point.0 as isize, point.1 as isize);
-    (point.0 + d.0, point.1 + d.1)
-}
-
-fn set_anti(nodes: &mut Vec<Vec<Node>>, point: (isize, isize)) -> Option<bool> {
-    if point.0.is_negative() || point.1.is_negative() {
-        return None;
+impl Scanner {
+    fn solve(&self, pt2: bool) -> usize {
+        self.find_antinodes(pt2).len()
     }
 
-    if let Some(row) = nodes.get_mut(point.1 as usize) {
-        return match row.get(point.0 as usize) {
-            Some(Node::Empty) => {
-                row[point.0 as usize] = Node::AntiNode;
-                Some(true)
+    fn find_antinodes(&self, pt2: bool) -> HashSet<(usize, usize)> {
+        let mut antinodes = HashSet::new();
+
+        if pt2 {
+            self.antennas.values().for_each(|antenna| {
+                antinodes.extend(antenna);
+            });
+        }
+
+        for freq in self.antennas.keys() {
+            if let Some(matches) = self.antennas.get(freq) {
+                let combos: Vec<Vec<&(usize, usize)>> = matches.iter().combinations(2).collect();
+                for combo in &combos {
+                    self.resonance(
+                        &mut antinodes,
+                        *combo[0],
+                        Scanner::distance(*combo[0], *combo[1]),
+                        pt2,
+                    );
+                    self.resonance(
+                        &mut antinodes,
+                        *combo[1],
+                        Scanner::distance(*combo[1], *combo[0]),
+                        pt2,
+                    );
+                }
             }
-            Some(Node::Antenna(_)) => Some(true),
-            Some(Node::AntiNode) => Some(false),
-            None => None,
-        };
+        }
+
+        antinodes
     }
 
-    None
-}
-
-fn main() {
-    let mut antennas = HashMap::new();
-    let mut antinodes = HashSet::new();
-
-    let mut nodes = include_str!("../assets/input.txt")
-        .lines()
-        .enumerate()
-        .map(|(y, line)| {
-            line.chars()
-                .enumerate()
-                .map(|(x, ch)| match ch {
-                    '.' => Node::Empty,
-                    ch if ch.is_ascii_alphanumeric() => {
-                        antennas.entry(ch).or_insert(vec![]).push((x, y));
-                        Node::Antenna(ch)
-                    }
-                    _ => panic!("invalid char: {}", ch),
-                })
-                .collect::<Vec<Node>>()
-        })
-        .collect::<Vec<Vec<Node>>>();
-
-    for k in antennas.keys() {
-        if let Some(matches) = antennas.get(k) {
-            let combos: Vec<Vec<&(usize, usize)>> = matches.iter().combinations(2).collect();
-            for combo in &combos {
-                let distance1 = distance(*combo[0], *combo[1]);
-                let mut point = *combo[0];
-                loop {
-                    let anti = delta(point, distance1);
-                    match set_anti(&mut nodes, anti) {
-                        Some(true) => {
-                            antinodes.insert(anti);
-                        }
-                        Some(false) => {}
-                        None => {
-                            break;
-                        }
-                    }
-                    point = (anti.0 as usize, anti.1 as usize);
+    fn resonance(
+        &self,
+        antinodes: &mut HashSet<(usize, usize)>,
+        point: (usize, usize),
+        distance: (isize, isize),
+        pt2: bool,
+    ) {
+        let mut point = point;
+        loop {
+            match self.delta(point, distance) {
+                Some(antinode) => {
+                    antinodes.insert(antinode);
+                    point = antinode;
                 }
-
-                let distance2 = distance(*combo[1], *combo[0]);
-                let mut point = *combo[1];
-                loop {
-                    let anti = delta(point, distance2);
-                    match set_anti(&mut nodes, anti) {
-                        Some(true) => {
-                            antinodes.insert(anti);
-                        }
-                        Some(false) => {}
-                        None => {
-                            break;
-                        }
-                    }
-                    point = (anti.0 as usize, anti.1 as usize);
-                }
+                None => return,
+            }
+            if !pt2 {
+                return;
             }
         }
     }
 
-    let mut total_anti = antinodes.len();
-    nodes.iter().enumerate().for_each(|(y, row)| {
-        row.iter().enumerate().for_each(|(x, node)| match node {
-            Node::Empty => print!("."),
-            Node::Antenna(ch) => {
-                // this is ugly, add these to the hashset earlier
-                if !antinodes.contains(&(x as isize, y as isize)) {
-                    total_anti += 1;
+    fn delta(&self, p: (usize, usize), d: (isize, isize)) -> Option<(usize, usize)> {
+        let delta = (p.0 as isize + d.0, p.1 as isize + d.1);
+
+        if delta.0.is_negative() || delta.1.is_negative() {
+            return None;
+        }
+
+        match self.nodes.get(delta.1 as usize)?.get(delta.0 as usize) {
+            Some(_) => Some((delta.0 as usize, delta.1 as usize)),
+            None => None,
+        }
+    }
+
+    fn distance(a: (usize, usize), b: (usize, usize)) -> (isize, isize) {
+        (
+            (a.0 as isize - b.0 as isize) as isize,
+            (a.1 as isize - b.1 as isize) as isize,
+        )
+    }
+
+    #[allow(dead_code)]
+    fn debug(&self, pt2: bool) {
+        let antinodes = self.find_antinodes(pt2);
+        for (y, row) in self.nodes.iter().enumerate() {
+            for (x, node) in row.iter().enumerate() {
+                let is_antinode = antinodes.contains(&(x, y));
+                match (node, is_antinode) {
+                    (None, false) => print!("."),
+                    (Some(ch), _) => print!("{}", ch),
+                    (_, true) => print!("#"),
                 }
-
-                print!("{}", ch)
             }
-            Node::AntiNode => {
-                print!("#")
-            }
-        });
-        println!();
-    });
+            println!();
+        }
+    }
+}
 
-    println!("antinodes: {}", total_anti);
+impl TryFrom<&str> for Scanner {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut antennas = HashMap::new();
+        let nodes = value
+            .lines()
+            .enumerate()
+            .map(|(y, line)| {
+                line.chars()
+                    .enumerate()
+                    .map(|(x, ch)| match ch {
+                        '.' => Ok(None),
+                        ch if ch.is_ascii_alphanumeric() => {
+                            antennas.entry(ch).or_insert(vec![]).push((x, y));
+                            Ok(Some(ch))
+                        }
+                        _ => Err("bad char"),
+                    })
+                    .collect::<Result<Vec<Option<char>>, _>>()
+            })
+            .collect::<Result<Vec<Vec<Option<char>>>, _>>()?;
+
+        Ok(Scanner { nodes, antennas })
+    }
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let scanner = Scanner::try_from(include_str!("../assets/input.txt"))?;
+    println!("pt1: {}", scanner.solve(false));
+    println!("pt2: {}", scanner.solve(true));
+    Ok(())
 }
